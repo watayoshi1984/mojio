@@ -1,0 +1,46 @@
+# MOJIO - Intelligent Real-time Transcription Application
+# Requirements File - プロジェクト依存関係定義
+
+# === GUI Framework ===
+# PySide6: Qt6のPythonバインディング（高機能GUI）
+PySide6>=6.6.0
+
+# === Audio Processing ===
+# faster-whisper: Whisper Large v2の高速化版（音声認識）
+faster-whisper>=0.10.0
+
+# SoundDevice: リアルタイム音声ストリーム（マイク入力）
+sounddevice>=0.4.6
+
+# SoundCard: PC内部音声キャプチャ（ループバック録音）
+soundcard>=0.4.2
+
+# NumPy: 高速な数値計算（音声データ処理）
+numpy>=1.24.0
+
+# silero-vad: 高精度音声区間検出
+# PyTorch: silero-vad用（軽量バージョン）
+torch>=2.0.0,<2.2.0
+torchaudio>=2.0.0,<2.2.0
+
+# === System Integration ===
+# pynput: グローバルショートカット・テキスト挿入
+pynput>=1.7.6
+
+# === Data Management ===
+# PyYAML: 設定ファイル管理（YAML形式）
+PyYAML>=6.0.1
+
+# === Development & Testing ===
+# pytest: テストフレームワーク
+pytest>=7.4.0
+pytest-qt>=4.2.0
+
+# === Optional Dependencies ===
+# pyinstaller: 実行ファイル化（配布用）
+pyinstaller>=5.13.0
+
+# === Platform-specific Dependencies ===
+# Windows専用
+# pywin32: Windowsシステム統合（Windows環境でのテキスト挿入精度向上）
+pywin32>=306; sys_platform == "win32"

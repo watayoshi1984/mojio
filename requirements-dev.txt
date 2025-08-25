@@ -1,0 +1,41 @@
+# MOJIO Development Requirements
+# 開発環境用追加依存関係
+
+# === Base Requirements ===
+-r requirements.txt
+
+# === Code Quality & Linting ===
+# Black: Pythonコードフォーマッター
+black>=23.0.0
+
+# Flake8: コード品質チェック
+flake8>=6.0.0
+
+# mypy: 静的型チェック
+mypy>=1.5.0
+
+# === Development Tools ===
+# ipython: インタラクティブシェル
+ipython>=8.14.0
+
+# jupyter: ノートブック環境（プロトタイピング用）
+jupyter>=1.0.0
+
+# === Profiling & Debugging ===
+# memory-profiler: メモリ使用量分析
+memory-profiler>=0.61.0
+
+# line-profiler: ライン単位パフォーマンス分析
+line-profiler>=4.1.0
+
+# === Documentation ===
+# sphinx: ドキュメント生成
+sphinx>=7.1.0
+sphinx-rtd-theme>=1.3.0
+
+# === Build Tools ===
+# setuptools: パッケージングツール
+setuptools>=68.0.0
+
+# wheel: ホイール形式パッケージ
+wheel>=0.41.0

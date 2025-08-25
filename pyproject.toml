@@ -1,0 +1,163 @@
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel>=0.41.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mojio"
+version = "0.1.0"
+description = "Mojio（もじ夫）- AIで文字起こしを高精度に"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Mojio Development Team", email = "dev@mojio.local" }
+]
+maintainers = [
+    { name = "Mojio Development Team", email = "dev@mojio.local" }
+]
+keywords = [
+    "speech-recognition",
+    "transcription", 
+    "whisper",
+    "real-time",
+    "ai",
+    "voice-to-text",
+    "pyside6",
+    "desktop-app"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Office/Business",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Environment :: Win32 (MS Windows)",
+    "Environment :: MacOS X"
+]
+dependencies = [
+    "PySide6>=6.6.0",
+    "faster-whisper>=0.10.0",
+    "sounddevice>=0.4.6",
+    "soundcard>=0.4.2",
+    "numpy>=1.24.0",
+    "torch>=2.0.0,<2.2.0",
+    "torchaudio>=2.0.0,<2.2.0",
+    "pynput>=1.7.6",
+    "PyYAML>=6.0.1",
+    "pywin32>=306; sys_platform == 'win32'"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-qt>=4.2.0",
+    "black>=23.0.0",
+    "flake8>=6.0.0",
+    "mypy>=1.5.0",
+    "ipython>=8.14.0",
+    "jupyter>=1.0.0",
+    "memory-profiler>=0.61.0",
+    "line-profiler>=4.1.0"
+]
+build = [
+    "pyinstaller>=5.13.0",
+    "setuptools>=68.0.0",
+    "wheel>=0.41.0"
+]
+docs = [
+    "sphinx>=7.1.0",
+    "sphinx-rtd-theme>=1.3.0"
+]
+
+[project.urls]
+Homepage = "https://github.com/watayoshi1984/mojio"
+Documentation = "https://github.com/watayoshi1984/mojio/wiki"
+Repository = "https://github.com/watayoshi1984/mojio.git"
+Issues = "https://github.com/watayoshi1984/mojio/issues"
+Changelog = "https://github.com/watayoshi1984/mojio/blob/main/CHANGELOG.md"
+
+[project.scripts]
+mojio = "main:main"
+
+[project.gui-scripts]
+mojio-gui = "main:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+mojio = ["*.yaml", "*.yml", "*.json", "assets/*", "models/*"]
+
+# === Black Configuration ===
+[tool.black]
+line-length = 88
+target-version = ['py310', 'py311', 'py312']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.pytest_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# === Pytest Configuration ===
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q --strict-markers --strict-config"
+testpaths = ["tests"]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "gui: marks tests as GUI tests",
+    "audio: marks tests as audio-related tests",
+]
+
+# === mypy Configuration ===
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "sounddevice.*",
+    "soundcard.*",
+    "faster_whisper.*",
+    "silero_vad.*",
+    "pynput.*"
+]
+ignore_missing_imports = true

@@ -1,0 +1,207 @@
+# MOJIO Default Configuration
+# デフォルト設定ファイル
+
+# === Application Info ===
+app:
+  name: "Mojio（もじ夫）"
+  version: "0.1.0"
+  description: "AIで文字起こしを高精度に"
+  
+# === Audio Settings ===
+audio:
+  # 音声入力設定
+  input:
+    # デフォルト音声デバイス（null = システムデフォルト）
+    device_id: null
+    # サンプリングレート（Hz）
+    sample_rate: 16000
+    # チャンネル数（モノラル）
+    channels: 1
+    # バッファサイズ（フレーム数）
+    buffer_size: 1024
+    # 入力レベル調整（dB）
+    gain: 0.0
+  
+  # PC内部音声設定
+  loopback:
+    # ループバック録音有効化
+    enabled: false
+    # デフォルトループバックデバイス
+    device_id: null
+    # ミキシング設定（mix: 混合, switch: 切替）
+    mode: "switch"
+  
+  # VAD（音声区間検出）設定
+  vad:
+    # VAD有効化
+    enabled: true
+    # 検出感度（0.0-1.0、高いほど敏感）
+    threshold: 0.6
+    # 最小発話長（秒）
+    min_speech_duration: 0.3
+    # 最大無音長（秒、これを超えると区切り）
+    max_silence_duration: 1.5
+    # 前後パディング（秒）
+    padding_duration: 0.2
+
+# === Transcription Settings ===
+transcription:
+  # faster-whisper設定
+  model:
+    # モデルサイズ（tiny, base, small, medium, large-v2）
+    size: "large-v2"
+    # 実行デバイス（auto, cpu, cuda）
+    device: "auto"
+    # 計算精度（float16, float32）
+    compute_type: "float16"
+    # CPUスレッド数（0 = 自動）
+    cpu_threads: 0
+    # ダウンロードルート
+    download_root: "./models"
+  
+  # 言語設定
+  language:
+    # メイン言語（auto = 自動検出）
+    primary: "ja"
+    # 自動検出有効化
+    auto_detect: true
+    # 検出候補言語
+    candidates: ["ja", "en"]
+  
+  # 出力設定
+  output:
+    # タイムスタンプ付与
+    include_timestamps: false
+    # 話者識別（簡易版）
+    speaker_detection: false
+    # 句読点自動挿入
+    auto_punctuation: true
+    # 大文字化
+    capitalize_first: true
+
+# === UI Settings ===
+ui:
+  # ウィンドウ設定
+  window:
+    # 初期位置とサイズ
+    x: 100
+    y: 100
+    width: 400
+    height: 300
+    # 最前面表示
+    always_on_top: false
+    # 透明度（0.0-1.0）
+    opacity: 1.0
+    # ウィンドウ装飾表示
+    frameless: false
+  
+  # 表示モード
+  display:
+    # モード（compact, normal, expanded）
+    mode: "normal"
+    # テーマ（light, dark, auto）
+    theme: "auto"
+    # フォント設定
+    font:
+      family: "Yu Gothic UI"
+      size: 10
+      weight: "normal"
+  
+  # 通知設定
+  notifications:
+    # 通知有効化
+    enabled: true
+    # 録音開始通知
+    recording_start: true
+    # 録音停止通知
+    recording_stop: true
+    # エラー通知
+    errors: true
+
+# === System Integration ===
+system:
+  # ショートカット設定
+  shortcuts:
+    # 録音開始/停止
+    toggle_recording: "ctrl+shift+space"
+    # 設定画面表示
+    show_settings: "ctrl+shift+alt+m"
+    # 履歴画面表示
+    show_history: "ctrl+shift+alt+h"
+  
+  # テキスト挿入設定
+  text_injection:
+    # 挿入方法（clipboard, direct, typing）
+    method: "typing"
+    # 挿入前の待機時間（ms）
+    delay_before: 100
+    # 文字間の待機時間（ms）
+    typing_delay: 10
+    # 改行文字変換
+    convert_newlines: true
+
+# === Data Management ===
+data:
+  # データベース設定
+  database:
+    # ユーザー辞書DB
+    user_dictionary: "./data/user_dictionary.db"
+    # 履歴DB
+    history: "./data/transcription_history.db"
+    # バックアップ有効化
+    backup_enabled: true
+    # バックアップ間隔（日）
+    backup_interval: 7
+  
+  # ユーザー辞書設定
+  dictionary:
+    # 辞書有効化
+    enabled: true
+    # 最大エントリ数
+    max_entries: 10000
+    # 候補表示数
+    suggestion_count: 5
+    # ハイライト有効化
+    highlight_enabled: true
+  
+  # 履歴設定
+  history:
+    # 履歴保存有効化
+    enabled: true
+    # 最大保存期間（日、0 = 無制限）
+    retention_days: 30
+    # 最大エントリ数（0 = 無制限）
+    max_entries: 1000
+
+# === Performance Settings ===
+performance:
+  # メモリ管理
+  memory:
+    # 最大メモリ使用量（MB、0 = 無制限）
+    max_usage: 0
+    # ガベージコレクション間隔（秒）
+    gc_interval: 30
+  
+  # 処理設定
+  processing:
+    # 並行処理数
+    max_workers: 2
+    # キューサイズ
+    queue_size: 10
+    # タイムアウト（秒）
+    timeout: 30
+
+# === Logging Settings ===
+logging:
+  # ログレベル（DEBUG, INFO, WARNING, ERROR, CRITICAL）
+  level: "INFO"
+  # ログファイル
+  file: "./logs/mojio.log"
+  # ファイルローテーション
+  rotation:
+    # 最大ファイルサイズ（MB）
+    max_size: 10
+    # 保持ファイル数
+    backup_count: 5
+  # コンソール出力
+  console: true
