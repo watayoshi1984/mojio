@@ -20,8 +20,8 @@ numpy>=1.24.0
 
 # silero-vad: 高精度音声区間検出
 # PyTorch: silero-vad用（軽量バージョン）
-torch>=2.0.0,<2.2.0
-torchaudio>=2.0.0,<2.2.0
+torch>=2.0.0
+torchaudio>=2.0.0
 
 # === System Integration ===
 # pynput: グローバルショートカット・テキスト挿入

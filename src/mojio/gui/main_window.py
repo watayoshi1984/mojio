@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
     QPushButton, QLabel, QTextEdit, QProgressBar,
     QStatusBar, QMenuBar, QSystemTrayIcon, QMenu
 )
-from PySide6.QtCore import Qt, QTimer, Signal, QThread, pyqtSignal
+from PySide6.QtCore import Qt, QTimer, Signal as pyqtSignal
 from PySide6.QtGui import QIcon, QFont, QPixmap, QAction
 
 from mojio.data.config_manager import ConfigManager
@@ -29,10 +29,9 @@ class MainWindow(QMainWindow):
     音声認識機能への直感的なアクセスを実現
     """
     
-    # シグナル定義
-    recording_requested = Signal()
-    stop_requested = Signal()
-    settings_requested = Signal()
+    recording_requested = pyqtSignal()
+    stop_requested = pyqtSignal()
+    settings_requested = pyqtSignal()
     
     def __init__(self, parent: Optional[QWidget] = None):
         """
