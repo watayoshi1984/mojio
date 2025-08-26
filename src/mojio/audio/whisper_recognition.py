@@ -7,9 +7,14 @@ faster-whisperを使用した音声認識の具体実装
 """
 
 import numpy as np
+import gc
 from typing import Optional, Callable, List, Iterator
 from faster_whisper import WhisperModel
 from .transcription_interface import SpeechRecognitionInterface, TranscriptionResult
+
+# Mojio例外とロガーをインポート
+from ..exceptions import SpeechRecognitionError, InitializationError
+from ..utils.logger import get_logger
 
 
 class WhisperSpeechRecognition(SpeechRecognitionInterface):
@@ -27,6 +32,7 @@ class WhisperSpeechRecognition(SpeechRecognitionInterface):
         self.device: str = "auto"
         self.compute_type: str = "float16"
         self.is_model_loaded: bool = False
+        self.logger = get_logger()
         
         # サポートする言語リスト
         self.supported_languages = [
@@ -57,10 +63,11 @@ class WhisperSpeechRecognition(SpeechRecognitionInterface):
                 compute_type=self.compute_type
             )
             self.is_model_loaded = True
-            print(f"Whisperモデル '{self.model_size}' をロードしました (デバイス: {self.device})")
+            self.logger.info(f"Whisperモデル '{self.model_size}' をロードしました (デバイス: {self.device})")
         except Exception as e:
             self.is_model_loaded = False
-            raise RuntimeError(f"Whisperモデルのロードに失敗しました: {e}")
+            self.logger.error(f"Whisperモデルのロードに失敗しました: {e}")
+            raise InitializationError(f"Whisperモデルのロードに失敗しました: {e}")
     
     def transcribe(self, 
                   audio_data: np.ndarray,
@@ -76,10 +83,12 @@ class WhisperSpeechRecognition(SpeechRecognitionInterface):
             str: 認識結果のテキスト
         """
         if not self.is_initialized():
-            raise RuntimeError("モデルが初期化されていません。initialize()を先に呼び出してください。")
+            self.logger.error("モデルが初期化されていません。initialize()を先に呼び出してください。")
+            raise InitializationError("モデルが初期化されていません。initialize()を先に呼び出してください。")
             
         if self.model is None:
-            raise RuntimeError("モデルが正しくロードされていません。")
+            self.logger.error("モデルが正しくロードされていません。")
+            raise SpeechRecognitionError("モデルが正しくロードされていません。")
             
         try:
             # faster-whisperは32bit float、16kHzの入力を期待
@@ -99,10 +108,19 @@ class WhisperSpeechRecognition(SpeechRecognitionInterface):
             for segment in segments:
                 transcription += segment.text
                 
+            # メモリを解放
+            del segments, info
+            gc.collect()
+                
             return transcription.strip()
             
         except Exception as e:
-            raise RuntimeError(f"音声認識処理中にエラーが発生しました: {e}")
+            self.logger.error(f"音声認識処理中にエラーが発生しました: {e}")
+            raise SpeechRecognitionError(f"音声認識処理中にエラーが発生しました: {e}")
+        finally:
+            # 入力音声データのメモリを解放
+            del audio_data
+            gc.collect()
     
     def transcribe_stream(self, 
                          audio_stream: Callable[[], np.ndarray],
@@ -141,9 +159,17 @@ class WhisperSpeechRecognition(SpeechRecognitionInterface):
                 for segment in segments:
                     transcription += segment.text
                     
+                # メモリを解放
+                del segments, info
+                gc.collect()
+                
                 # コールバック関数を呼び出す
                 if callback is not None:
                     callback(transcription.strip())
+                    
+                # 入力音声データのメモリを解放
+                del audio_data
+                gc.collect()
                     
         except Exception as e:
             raise RuntimeError(f"ストリーム音声認識処理中にエラーが発生しました: {e}")
@@ -165,6 +191,16 @@ class WhisperSpeechRecognition(SpeechRecognitionInterface):
             List[str]: 言語コードのリスト
         """
         return self.supported_languages
+
+    def unload_model(self) -> None:
+        """
+        Whisperモデルをアンロードする
+        """
+        if self.model is not None:
+            del self.model
+            self.model = None
+            self.is_model_loaded = False
+            gc.collect()
 
 
 # テスト用の簡単な使用例

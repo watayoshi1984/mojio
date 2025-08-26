@@ -1,19 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Mojio（もじ夫）- AIで文字起こしを高精度に
-リアルタイム文字起こしアプリケーション
+MOJIO Main Package
+MOJIO メインパッケージ
 
-高精度なWhisper Large v2エンジンを使用した
-オフライン音声認識システム
+MOJIOアプリケーションのメインパッケージ
 """
 
 __version__ = "0.1.0"
-__author__ = "Mojio Development Team"
-__description__ = "Mojio（もじ夫）- AIで文字起こしを高精度に"
+__author__ = "開発者"
 
-# パッケージの公開API
+# メインパッケージの主要モジュールをインポート
+from . import audio
+from . import data
+from . import gui
+from . import system
+from . import utils
+from . import exceptions
+
 __all__ = [
-    "__version__",
-    "__author__", 
-    "__description__"
+    "audio",
+    "data", 
+    "gui",
+    "system",
+    "utils",
+    "exceptions"
 ]

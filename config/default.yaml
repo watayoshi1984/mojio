@@ -95,6 +95,13 @@ ui:
     # ウィンドウ装飾表示
     frameless: false
   
+  # ハイライト設定
+  highlight_enabled: true
+  keywords:
+    - "重要"
+    - "注意"
+    - "要点"
+  
   # 表示モード
   display:
     # モード（compact, normal, expanded）

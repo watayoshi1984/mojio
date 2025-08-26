@@ -10,6 +10,10 @@ from typing import List, Dict, Any, Optional
 from .database_interface import DatabaseInterface
 from .sqlite_database import SQLiteDatabase
 
+# Mojio例外とロガーをインポート
+from ..exceptions import DatabaseError, InitializationError
+from ..utils.logger import get_logger
+
 
 class DatabaseManager:
     """
@@ -25,6 +29,7 @@ class DatabaseManager:
         self.current_database_type: Optional[str] = None
         self.is_active = False
         self.database_path: Optional[str] = None
+        self.logger = get_logger()
         
     def initialize_database(self, database_type: str = "sqlite", database_path: str = "data/mojio.db") -> None:
         """
@@ -36,16 +41,21 @@ class DatabaseManager:
         """
         self.database_path = database_path
         
-        if database_type == "sqlite":
-            self.current_database = SQLiteDatabase()
-            self.current_database_type = database_type
-        else:
-            raise ValueError(f"サポートされていないデータベースタイプ: {database_type}")
+        try:
+            if database_type == "sqlite":
+                self.current_database = SQLiteDatabase()
+                self.current_database_type = database_type
+            else:
+                raise ValueError(f"サポートされていないデータベースタイプ: {database_type}")
+                
+            # データベースに接続
+            self.current_database.connect(database_path)
+            self.is_active = True
+            self.logger.info(f"データベースを初期化しました: {database_path}")
+        except Exception as e:
+            self.logger.error(f"データベース初期化エラー: {e}")
+            raise DatabaseError(f"データベース初期化エラー: {e}")
             
-        # データベースに接続
-        self.current_database.connect(database_path)
-        self.is_active = True
-        
     def disconnect(self) -> None:
         """
         データベースから切断する

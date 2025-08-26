@@ -11,79 +11,45 @@ import yaml
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+# Mojio例外とロガーをインポート
+from ..exceptions import ConfigurationError, FileNotFoundError
+from ..utils.logger import get_logger
+
 
 class ConfigManager:
     """
     設定管理クラス
     
-    YAML形式の設定ファイルを管理し、
-    アプリケーション全体の設定を提供
+    アプリケーションの設定をYAMLファイルから読み込み・保存する
     """
     
-    def __init__(self, config_dir: Optional[Path] = None):
+    def __init__(self, config_path: str = "config/default.yaml"):
         """
         設定管理を初期化
         
         Args:
-            config_dir: 設定ディレクトリのパス
+            config_path: 設定ファイルのパス
         """
-        # プロジェクトルートを基準とした設定ディレクトリ
-        if config_dir is None:
-            project_root = Path(__file__).parent.parent.parent.parent
-            self.config_dir = project_root / "config"
-        else:
-            self.config_dir = config_dir
-            
-        # 設定ファイルパス
-        self.default_config_path = self.config_dir / "default.yaml"
-        self.user_config_path = self.config_dir / "user.yaml"
+        self.config_path = Path(config_path)
+        self.logger = get_logger()
+        self.config = self._load_config()
         
-        # 設定データ
-        self.config: Dict[str, Any] = {}
-        
-        # 設定ディレクトリ作成
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        
-        # 設定を読み込み
-        self._load_config()
-        
-    def _load_config(self) -> None:
+    def _load_config(self) -> Dict[str, Any]:
         """設定ファイルを読み込み"""
-        # デフォルト設定を読み込み
-        if self.default_config_path.exists():
+        if self.config_path.exists():
             try:
-                with open(self.default_config_path, 'r', encoding='utf-8') as f:
-                    self.config = yaml.safe_load(f) or {}
+                with open(self.config_path, 'r', encoding='utf-8') as f:
+                    return yaml.safe_load(f) or {}
+            except yaml.YAMLError as e:
+                self.logger.error(f"設定ファイルのYAML形式が不正です: {e}")
+                raise ConfigurationError(f"設定ファイルのYAML形式が不正です: {e}")
             except Exception as e:
-                print(f"デフォルト設定読み込みエラー: {e}")
-                self.config = {}
+                self.logger.error(f"設定読み込みエラー: {e}")
+                raise ConfigurationError(f"設定読み込みエラー: {e}")
         else:
-            print(f"デフォルト設定ファイルが見つかりません: {self.default_config_path}")
-            self.config = self._get_fallback_config()
+            self.logger.warning(f"設定ファイルが見つかりません: {self.config_path}")
+            return self._get_fallback_config()
             
-        # ユーザー設定で上書き
-        if self.user_config_path.exists():
-            try:
-                with open(self.user_config_path, 'r', encoding='utf-8') as f:
-                    user_config = yaml.safe_load(f) or {}
-                    self._merge_config(self.config, user_config)
-            except Exception as e:
-                print(f"ユーザー設定読み込みエラー: {e}")
-                
-    def _merge_config(self, base: Dict[str, Any], override: Dict[str, Any]) -> None:
-        """
-        設定辞書をマージ
-        
-        Args:
-            base: ベース設定辞書
-            override: 上書き設定辞書
-        """
-        for key, value in override.items():
-            if key in base and isinstance(base[key], dict) and isinstance(value, dict):
-                self._merge_config(base[key], value)
-            else:
-                base[key] = value
-                
     def _get_fallback_config(self) -> Dict[str, Any]:
         """
         フォールバック設定を取得
@@ -178,18 +144,29 @@ class ConfigManager:
     def save_config(self) -> None:
         """ユーザー設定を保存"""
         try:
-            with open(self.user_config_path, 'w', encoding='utf-8') as f:
+            # 設定ファイルのディレクトリが存在しない場合は作成
+            self.config_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            with open(self.config_path, 'w', encoding='utf-8') as f:
                 yaml.dump(self.config, f, 
                          default_flow_style=False, 
                          allow_unicode=True,
                          sort_keys=False)
+            self.logger.info(f"設定を保存しました: {self.config_path}")
+        except yaml.YAMLError as e:
+            self.logger.error(f"設定ファイルのYAML形式が不正です: {e}")
+            raise ConfigurationError(f"設定ファイルのYAML形式が不正です: {e}")
+        except PermissionError as e:
+            self.logger.error(f"設定ファイルへの書き込み権限がありません: {e}")
+            raise ConfigurationError(f"設定ファイルへの書き込み権限がありません: {e}")
         except Exception as e:
-            print(f"設定保存エラー: {e}")
+            self.logger.error(f"設定保存エラー: {e}")
+            raise ConfigurationError(f"設定保存エラー: {e}")
             
     def reset_to_default(self) -> None:
         """設定をデフォルトにリセット"""
-        if self.user_config_path.exists():
-            self.user_config_path.unlink()
+        if self.config_path.exists():
+            self.config_path.unlink()
         self._load_config()
         
     def backup_config(self, backup_path: Optional[Path] = None) -> bool:
@@ -203,7 +180,7 @@ class ConfigManager:
             成功フラグ
         """
         if backup_path is None:
-            backup_path = self.config_dir / "backup.yaml"
+            backup_path = self.config_path.parent / "backup.yaml"
             
         try:
             with open(backup_path, 'w', encoding='utf-8') as f:
@@ -237,3 +214,95 @@ class ConfigManager:
         except Exception as e:
             print(f"設定リストアエラー: {e}")
             return False
+            
+    def get_keywords(self) -> List[str]:
+        """
+        ハイライトするキーワードのリストを取得する
+        
+        Returns:
+            List[str]: ハイライトするキーワードのリスト
+        """
+        return self.config.get("ui", {}).get("keywords", [])
+        
+    def set_keywords(self, keywords: List[str]) -> None:
+        """
+        ハイライトするキーワードのリストを設定する
+        
+        Args:
+            keywords: ハイライトするキーワードのリスト
+        """
+        self.config.setdefault("ui", {})["keywords"] = keywords
+        self.save_config()
+        
+    def is_highlight_enabled(self) -> bool:
+        """
+        キーワードハイライトが有効かどうかを返す
+        
+        Returns:
+            bool: キーワードハイライトが有効ならTrue、そうでないならFalse
+        """
+        return self.config.get("ui", {}).get("highlight_enabled", True)
+        
+    def set_highlight_enabled(self, enabled: bool) -> None:
+        """
+        キーワードハイライトの有効/無効を設定する
+        
+        Args:
+            enabled: 有効にする場合はTrue、無効にする場合はFalse
+        """
+        self.config.setdefault("ui", {})["highlight_enabled"] = enabled
+        self.save_config()
+        
+    def get_performance_settings(self) -> dict:
+        """
+        パフォーマンス設定を取得する
+        
+        Returns:
+            dict: パフォーマンス設定
+        """
+        return self.config.get("performance", {})
+        
+    def get_max_memory_usage(self) -> int:
+        """
+        最大メモリ使用量を取得する
+        
+        Returns:
+            int: 最大メモリ使用量（MB）
+        """
+        return self.config.get("performance", {}).get("memory", {}).get("max_usage", 0)
+        
+    def get_gc_interval(self) -> int:
+        """
+        ガベージコレクション間隔を取得する
+        
+        Returns:
+            int: ガベージコレクション間隔（秒）
+        """
+        return self.config.get("performance", {}).get("memory", {}).get("gc_interval", 30)
+        
+    def get_max_workers(self) -> int:
+        """
+        最大ワーカー数を取得する
+        
+        Returns:
+            int: 最大ワーカー数
+        """
+        return self.config.get("performance", {}).get("processing", {}).get("max_workers", 2)
+        
+    def get_queue_size(self) -> int:
+        """
+        キューサイズを取得する
+        
+        Returns:
+            int: キューサイズ
+        """
+        return self.config.get("performance", {}).get("processing", {}).get("queue_size", 10)
+        
+    def get_timeout(self) -> int:
+        """
+        タイムアウト時間を取得する
+        
+        Returns:
+            int: タイムアウト時間（秒）
+        """
+        return self.config.get("performance", {}).get("processing", {}).get("timeout", 30)

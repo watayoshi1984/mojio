@@ -8,6 +8,7 @@ SoundDeviceを使用したマイク音声入力の具体実装
 
 import sounddevice as sd
 import numpy as np
+import gc
 from typing import List, Optional, Callable
 from .audio_input_interface import AudioInputInterface, AudioDeviceInfo
 
@@ -112,7 +113,12 @@ class MicrophoneAudioInput(AudioInputInterface):
             if self.callback_func is not None:
                 # indataは3次元配列（frames, channels, 1）なので2次元に変換
                 audio_data = indata[:, 0]  # モノラルの場合、最初のチャンネルのみ使用
-                self.callback_func(audio_data)
+                # データのコピーを作成してコールバックに渡す
+                audio_copy = audio_data.copy()
+                self.callback_func(audio_copy)
+                # メモリを解放
+                del audio_copy, audio_data, indata
+                gc.collect()
                 
         self.stream.callback = audio_callback
     

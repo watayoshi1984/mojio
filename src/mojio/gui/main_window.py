@@ -13,12 +13,21 @@ from typing import Optional
 from PySide6.QtWidgets import (
     QMainWindow, QVBoxLayout, QHBoxLayout, QWidget, 
     QPushButton, QLabel, QTextEdit, QProgressBar,
-    QStatusBar, QMenuBar, QSystemTrayIcon, QMenu
+    QStatusBar, QMenuBar, QSystemTrayIcon, QMenu,
+    QMessageBox  # 追加
 )
 from PySide6.QtCore import Qt, QTimer, Signal as pyqtSignal
 from PySide6.QtGui import QIcon, QFont, QPixmap, QAction
 
-from mojio.data.config_manager import ConfigManager
+# Mojio例外とロガーをインポート
+from ..exceptions import MojioBaseException
+from ..utils.logger import get_logger
+from ..data.config_manager import ConfigManager
+from ..data.keyword_highlight import KeywordHighlight
+from ..system.pipeline_manager import RealtimePipelineManager
+
+# 設定ダイアログをインポート
+from .settings_dialog import SettingsDialog
 
 
 class MainWindow(QMainWindow):
@@ -42,9 +51,20 @@ class MainWindow(QMainWindow):
         """
         super().__init__(parent)
         
+        # ロガーを初期化
+        self.logger = get_logger()
+        
         # 設定管理
         self.config_manager = ConfigManager()
         self.config = self.config_manager.get_config()
+        
+        # キーワードハイライト
+        self.keyword_highlight = KeywordHighlight()
+        self._setup_keyword_highlight()
+        
+        # パイプライン管理
+        self.pipeline_manager = RealtimePipelineManager()
+        self.pipeline_manager.initialize_pipeline()
         
         # ウィンドウの基本設定
         self._setup_window()
@@ -65,6 +85,12 @@ class MainWindow(QMainWindow):
         
         # タイマー設定
         self._setup_timers()
+        
+    def _setup_keyword_highlight(self) -> None:
+        """キーワードハイライトの初期設定を行う"""
+        # 設定からキーワードリストを取得
+        keywords = self.config.get("ui", {}).get("keywords", [])
+        self.keyword_highlight.set_keywords(keywords)
         
     def _setup_window(self) -> None:
         """ウィンドウの基本設定を行う"""
@@ -171,6 +197,17 @@ class MainWindow(QMainWindow):
             }
         """)
         
+        # === パフォーマンス情報表示部分 ===
+        self.performance_label = QLabel("パフォーマンス情報: 準備完了")
+        self.performance_label.setStyleSheet("""
+            QLabel {
+                font-size: 10px;
+                color: #7f8c8d;
+                padding: 2px;
+            }
+        """)
+        self.performance_label.setAlignment(Qt.AlignLeft)
+        
         # === プログレスバー ===
         self.audio_level_bar = QProgressBar()
         self.audio_level_bar.setMaximum(100)
@@ -215,6 +252,7 @@ class MainWindow(QMainWindow):
         main_layout.addLayout(header_layout)
         main_layout.addLayout(button_layout)
         main_layout.addWidget(self.transcription_display, 1)
+        main_layout.addWidget(self.performance_label)
         
     def _create_menu_bar(self) -> None:
         """メニューバーを作成"""
@@ -285,13 +323,68 @@ class MainWindow(QMainWindow):
     def _connect_signals(self) -> None:
         """シグナルとスロットを接続"""
         self.record_button.clicked.connect(self._toggle_recording)
-        self.settings_button.clicked.connect(self.settings_requested.emit)
+        self.settings_button.clicked.connect(self._open_settings)
+        self.settings_requested.connect(self._open_settings)
         
     def _setup_timers(self) -> None:
         """タイマーを設定"""
         # 音声レベル更新タイマー
         self.audio_timer = QTimer()
         self.audio_timer.timeout.connect(self._update_audio_level)
+        
+        # パフォーマンス情報更新タイマー
+        self.performance_timer = QTimer()
+        self.performance_timer.timeout.connect(self._update_performance_info)
+        self.performance_timer.start(1000)  # 1秒ごとに更新
+        
+    def _open_settings(self) -> None:
+        """設定ダイアログを開く"""
+        dialog = SettingsDialog(self)
+        if dialog.exec() == QDialog.Accepted:
+            # 設定が変更された場合はUIを更新
+            self._update_ui_from_settings()
+            
+    def _update_ui_from_settings(self) -> None:
+        """設定に基づいてUIを更新"""
+        # 設定を再読み込み
+        self.config = self.config_manager.get_config()
+        
+        # ウィンドウ透明度を更新
+        ui_config = self.config.get("ui", {}).get("window", {})
+        opacity = ui_config.get("opacity", 1.0)
+        self.setWindowOpacity(opacity)
+        
+        # 最前面表示設定を更新
+        if ui_config.get("always_on_top", False):
+            self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        else:
+            self.setWindowFlags(self.windowFlags() & ~Qt.WindowStaysOnTopHint)
+        self.show()  # ウィンドウフラグの変更を反映するために再表示
+        
+        # キーワードハイライトを更新
+        self._setup_keyword_highlight()
+        
+    def _show_error_message(self, title: str, message: str) -> None:
+        """
+        エラーメッセージを表示する
+        
+        Args:
+            title: エラーダイアログのタイトル
+            message: エラーメッセージ
+        """
+        self.logger.error(f"{title}: {message}")
+        QMessageBox.critical(self, title, message)
+        
+    def _show_warning_message(self, title: str, message: str) -> None:
+        """
+        警告メッセージを表示する
+        
+        Args:
+            title: 警告ダイアログのタイトル
+            message: 警告メッセージ
+        """
+        self.logger.warning(f"{title}: {message}")
+        QMessageBox.warning(self, title, message)
         
     def _toggle_recording(self) -> None:
         """録音の開始/停止を切り替え"""
@@ -302,59 +395,71 @@ class MainWindow(QMainWindow):
             
     def _start_recording(self) -> None:
         """録音を開始"""
-        self.is_recording = True
-        self.record_button.setText("⏹️ 停止")
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #e74c3c;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
-                padding: 10px;
-            }
-            QPushButton:hover {
-                background-color: #c0392b;
-            }
-        """)
-        self.status_label.setText("🔴 録音中...")
-        self.statusBar().showMessage("録音中...")
-        
-        # 音声レベル更新開始
-        self.audio_timer.start(100)
-        
-        # 録音開始シグナル発信
-        self.recording_requested.emit()
-        
+        try:
+            self.is_recording = True
+            self.record_button.setText("⏹️ 停止")
+            self.record_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #e74c3c;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    padding: 10px;
+                }
+                QPushButton:hover {
+                    background-color: #c0392b;
+                }
+            """)
+            self.status_label.setText("🔴 録音中...")
+            self.statusBar().showMessage("録音中...")
+            
+            # 音声レベル更新開始
+            self.audio_timer.start(100)
+            
+            # 録音開始シグナル発信
+            self.recording_requested.emit()
+        except Exception as e:
+            self._show_error_message("録音開始エラー", f"録音の開始中にエラーが発生しました: {str(e)}")
+            self.is_recording = False
+            self.record_button.setText("🎤 録音開始")
+            self.status_label.setText("エラーが発生しました")
+            self.statusBar().showMessage("エラーが発生しました")
+            
     def _stop_recording(self) -> None:
         """録音を停止"""
-        self.is_recording = False
-        self.record_button.setText("🎤 録音開始")
-        self.record_button.setStyleSheet("""
-            QPushButton {
-                background-color: #3498db;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                font-size: 14px;
-                font-weight: bold;
-                padding: 10px;
-            }
-            QPushButton:hover {
-                background-color: #2980b9;
-            }
-        """)
-        self.status_label.setText("処理中...")
-        self.statusBar().showMessage("処理中...")
-        
-        # 音声レベル更新停止
-        self.audio_timer.stop()
-        self.audio_level_bar.setValue(0)
-        
-        # 停止シグナル発信
-        self.stop_requested.emit()
-        
+        try:
+            self.is_recording = False
+            self.record_button.setText("🎤 録音開始")
+            self.record_button.setStyleSheet("""
+                QPushButton {
+                    background-color: #3498db;
+                    color: white;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 14px;
+                    font-weight: bold;
+                    padding: 10px;
+                }
+                QPushButton:hover {
+                    background-color: #2980b9;
+                }
+            """)
+            self.status_label.setText("処理中...")
+            self.statusBar().showMessage("処理中...")
+            
+            # 音声レベル更新停止
+            self.audio_timer.stop()
+            self.audio_level_bar.setValue(0)
+            
+            # 停止シグナル発信
+            self.stop_requested.emit()
+        except Exception as e:
+            self._show_error_message("録音停止エラー", f"録音の停止中にエラーが発生しました: {str(e)}")
+            self.status_label.setText("エラーが発生しました")
+            self.statusBar().showMessage("エラーが発生しました")
+            
     def _update_audio_level(self) -> None:
         """音声レベルバーを更新"""
         # 実際の音声レベルは音声処理コンポーネントから取得
@@ -364,10 +469,27 @@ class MainWindow(QMainWindow):
             level = random.randint(10, 80)
             self.audio_level_bar.setValue(level)
             
+    def _update_performance_info(self) -> None:
+        """パフォーマンス情報を更新"""
+        if self.pipeline_manager.current_pipeline and self.pipeline_manager.current_pipeline.is_processing():
+            avg_time = self.pipeline_manager.current_pipeline.get_average_processing_time()
+            max_time = self.pipeline_manager.current_pipeline.get_max_processing_time()
+            avg_memory = self.pipeline_manager.current_pipeline.get_average_memory_usage()
+            max_memory = self.pipeline_manager.current_pipeline.get_max_memory_usage()
+            
+            performance_text = f"パフォーマンス情報: 平均処理時間 {avg_time:.3f}s, 最大処理時間 {max_time:.3f}s, 平均メモリ {avg_memory:.1f}MB, 最大メモリ {max_memory:.1f}MB"
+            self.performance_label.setText(performance_text)
+        else:
+            self.performance_label.setText("パフォーマンス情報: 準備完了")
+            
     def update_transcription(self, text: str) -> None:
         """文字起こし結果を更新"""
         self.transcription_text = text
         self.transcription_display.setText(text)
+        
+        # キーワードをハイライト
+        if self.config.get("ui", {}).get("highlight_enabled", True):
+            self.keyword_highlight.highlight_text(self.transcription_display)
         
         # 処理完了後のステータス更新
         if not self.is_recording:

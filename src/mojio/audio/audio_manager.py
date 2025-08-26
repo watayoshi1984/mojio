@@ -8,6 +8,7 @@ Mojio 音声入力管理
 
 from typing import Optional, Callable, List
 import numpy as np
+import gc
 from .audio_input_interface import AudioDeviceInfo
 from .microphone_input import MicrophoneAudioInput
 from .loopback_input import LoopbackAudioInput
@@ -28,6 +29,14 @@ class AudioInputManager:
         self.current_input_type: Optional[str] = None  # "microphone" or "loopback"
         self.is_active: bool = False
         self.callback_func: Optional[Callable[[np.ndarray], None]] = None
+        
+    def initialize(self) -> None:
+        """
+        音声入力管理を初期化する
+        """
+        # 現在の実装では特別な初期化は不要
+        # 必要に応じて追加の初期化処理をここに記述
+        pass
         
     def get_microphone_devices(self) -> List[AudioDeviceInfo]:
         """
@@ -97,12 +106,21 @@ class AudioInputManager:
         Args:
             callback: 音声データ受信時のコールバック関数
         """
-        self.callback_func = callback
+        # コールバック関数をラップしてメモリ管理を追加
+        def wrapped_callback(audio_data: np.ndarray) -> None:
+            try:
+                callback(audio_data)
+            finally:
+                # コールバック実行後に音声データのメモリを解放
+                del audio_data
+                gc.collect()
+                
+        self.callback_func = wrapped_callback
         
         if self.current_input_type == "microphone":
-            self.microphone_input.start_stream(callback)
+            self.microphone_input.start_stream(wrapped_callback)
         elif self.current_input_type == "loopback":
-            self.loopback_input.start_stream(callback)
+            self.loopback_input.start_stream(wrapped_callback)
             
         self.is_active = True
     
@@ -190,24 +208,3 @@ if __name__ == "__main__":
             time.sleep(3)
             audio_manager.stop_stream()
             audio_manager.close_stream()
-            print("マイク音声キャプチャを停止しました。")
-            
-        # ループバック入力をテスト
-        if loopback_devices:
-            print("\nループバック入力テストを開始します...")
-            audio_manager.open_loopback_stream(
-                device_id=loopback_devices[0]['id'],
-                sample_rate=16000,
-                channels=1,
-                buffer_size=1024
-            )
-            
-            audio_manager.start_stream(test_callback)
-            print("ループバック音声キャプチャを開始しました。3秒間テストします...")
-            time.sleep(3)
-            audio_manager.stop_stream()
-            audio_manager.close_stream()
-            print("ループバック音声キャプチャを停止しました。")
-            
-    except Exception as e:
-        print(f"エラーが発生しました: {e}")
