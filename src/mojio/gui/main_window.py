@@ -380,6 +380,58 @@ class MainWindow(QMainWindow):
         percentage = int(level * 100)
         self.audio_level_bar.setValue(percentage)
         
+    def set_window_opacity(self, opacity: float) -> None:
+        """
+        ウィンドウの透明度を設定する
+        
+        Args:
+            opacity: 透明度 (0.0-1.0)
+        """
+        # 透明度の範囲を0.0-1.0に制限
+        opacity = max(0.0, min(1.0, opacity))
+        
+        # ウィンドウに透明度を適用
+        self.setWindowOpacity(opacity)
+        
+        # 設定を更新
+        self.config.setdefault("ui", {}).setdefault("window", {})["opacity"] = opacity
+        
+    def set_window_size(self, width: int, height: int) -> None:
+        """
+        ウィンドウのサイズを設定する
+        
+        Args:
+            width: ウィンドウの幅
+            height: ウィンドウの高さ
+        """
+        # 最小サイズを下回らないように制限
+        min_width = self.minimumWidth()
+        min_height = self.minimumHeight()
+        width = max(min_width, width)
+        height = max(min_height, height)
+        
+        # ウィンドウサイズを変更
+        self.resize(width, height)
+        
+        # 設定を更新
+        ui_config = self.config.setdefault("ui", {}).setdefault("window", {})
+        ui_config["width"] = width
+        ui_config["height"] = height
+        
+    def save_window_settings(self) -> None:
+        """
+        現在のウィンドウ設定を保存する
+        """
+        try:
+            ui_config = self.config.setdefault("ui", {}).setdefault("window", {})
+            ui_config["x"] = self.x()
+            ui_config["y"] = self.y()
+            ui_config["width"] = self.width()
+            ui_config["height"] = self.height()
+            self.config_manager.save_config()
+        except Exception as e:
+            print(f"ウィンドウ設定保存エラー: {e}")
+        
     def _show_history(self) -> None:
         """履歴画面を表示"""
         # TODO: 履歴画面の実装
