@@ -52,6 +52,7 @@ dependencies = [
     "torchaudio>=2.0.0",
     "pynput>=1.7.6",
     "PyYAML>=6.0.1",
+    "silero-vad @ git+https://github.com/snakers4/silero-vad.git",
     "pywin32>=306; sys_platform == 'win32'"
 ]
 
