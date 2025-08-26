@@ -14,6 +14,8 @@ from ..audio.vad_manager import VoiceActivityDetectionManager
 from ..audio.recognition_manager import SpeechRecognitionManager
 from ..system.text_injection_manager import TextInjectionManager
 from ..system.shortcut_manager import GlobalShortcutManager
+from ..data.dictionary_manager import DictionaryManager
+from ..data.matching_manager import MatchingManager
 
 
 class RealtimeProcessingPipeline(RealtimePipelineInterface):
@@ -31,6 +33,8 @@ class RealtimeProcessingPipeline(RealtimePipelineInterface):
         self.recognition_manager = SpeechRecognitionManager()
         self.text_injection_manager = TextInjectionManager()
         self.shortcut_manager = GlobalShortcutManager()
+        self.dictionary_manager = DictionaryManager()
+        self.matching_manager = MatchingManager()
         
         self.input_type = "microphone"
         self.vad_enabled = True
@@ -72,6 +76,12 @@ class RealtimeProcessingPipeline(RealtimePipelineInterface):
         
         # テキスト挿入マネージャを初期化
         self.text_injection_manager.initialize_engine(engine_type="pynput")
+        
+        # ユーザー辞書マネージャを初期化
+        self.dictionary_manager.initialize_dictionary(dictionary_type="user")
+        
+        # 辞書マッチングマネージャを初期化
+        self.matching_manager.initialize_matching(matching_type="dictionary")
         
         # グローバルショートカットマネージャを初期化
         if self.shortcut_enabled:
@@ -151,10 +161,21 @@ class RealtimeProcessingPipeline(RealtimePipelineInterface):
                 audio_data = np.concatenate(self.audio_buffer)
                 # 音声認識を実行
                 recognized_text = self.recognition_manager.transcribe(audio_data)
+                
+                # ユーザー辞書から辞書データを取得
+                dictionary_entries = self.dictionary_manager.list_entries()
+                dictionary = {entry["word"]: entry["reading"] for entry in dictionary_entries if entry["reading"]}
+                
+                # 辞書マッチングを適用
+                if dictionary:
+                    matched_text = self.matching_manager.apply_dictionary(recognized_text, dictionary)
+                else:
+                    matched_text = recognized_text
+                
                 # テキストを挿入
-                self.text_injection_manager.inject_text(recognized_text, self.target_window)
-                self.last_recognized_text = recognized_text
-                print(f"認識結果: {recognized_text}")
+                self.text_injection_manager.inject_text(matched_text, self.target_window)
+                self.last_recognized_text = matched_text
+                print(f"認識結果: {matched_text}")
             self.audio_buffer.clear()
             print("録音を停止しました")
             
@@ -182,10 +203,21 @@ class RealtimeProcessingPipeline(RealtimePipelineInterface):
                     buffered_audio = np.concatenate(self.audio_buffer)
                     # 音声認識を実行
                     recognized_text = self.recognition_manager.transcribe(buffered_audio)
+                    
+                    # ユーザー辞書から辞書データを取得
+                    dictionary_entries = self.dictionary_manager.list_entries()
+                    dictionary = {entry["word"]: entry["reading"] for entry in dictionary_entries if entry["reading"]}
+                    
+                    # 辞書マッチングを適用
+                    if dictionary:
+                        matched_text = self.matching_manager.apply_dictionary(recognized_text, dictionary)
+                    else:
+                        matched_text = recognized_text
+                    
                     # テキストを挿入
-                    self.text_injection_manager.inject_text(recognized_text, self.target_window)
-                    self.last_recognized_text = recognized_text
-                    print(f"認識結果: {recognized_text}")
+                    self.text_injection_manager.inject_text(matched_text, self.target_window)
+                    self.last_recognized_text = matched_text
+                    print(f"認識結果: {matched_text}")
                     self.audio_buffer.clear()
         else:
             # 音声区間検出が無効な場合はすべての音声データをバッファに追加
